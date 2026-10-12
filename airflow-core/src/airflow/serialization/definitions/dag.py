@@ -321,6 +321,9 @@ class SerializedDAG:
             matched_tasks = [t for t in self.tasks if t.task_id in task_ids]
 
         also_include_ids: set[str] = set()
+        # Without any setup task in the Dag, get_upstreams_only_setups_and_teardowns() can only yield
+        # nothing, and calling it for every downstream task walks the whole Dag each time.
+        has_setups = any(task.is_setup for task in self.tasks)
         for t in matched_tasks:
             if include_downstream:
                 for rel in t.get_flat_relatives(upstream=False, depth=depth):
@@ -328,7 +331,7 @@ class SerializedDAG:
                     if rel not in matched_tasks:  # if it's in there, we're already processing it
                         # need to include setups and teardowns for tasks that are in multiple
                         # non-collinear setup/teardown paths
-                        if not rel.is_setup and not rel.is_teardown:
+                        if has_setups and not rel.is_setup and not rel.is_teardown:
                             also_include_ids.update(
                                 x.task_id for x in rel.get_upstreams_only_setups_and_teardowns()
                             )

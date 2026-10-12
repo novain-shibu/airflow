@@ -91,6 +91,7 @@ from airflow.sdk.definitions.deadline import DeadlineAlert, DeadlineReference
 from airflow.sdk.definitions.param import Param
 from airflow.sdk.exceptions import TaskAwaitingInput
 from airflow.sdk.execution_time.hitl import upsert_hitl_detail
+from airflow.serialization.definitions.baseoperator import SerializedBaseOperator
 from airflow.serialization.definitions.dag import SerializedDAG
 from airflow.serialization.encoders import coerce_to_core_timetable
 from airflow.serialization.serialized_objects import LazyDeserializedDAG
@@ -4132,6 +4133,21 @@ def test_create_dagrun_disallow_manual_to_use_automated_run_id(run_id_type: DagR
             state=DagRunState.QUEUED,
             triggered_by=DagRunTriggeredByType.TEST,
         )
+
+
+@mock.patch.object(SerializedBaseOperator, "get_upstreams_only_setups_and_teardowns", autospec=True)
+def test_serialized_partial_subset_downstream_skips_setup_lookup_without_setups(mock_setups_lookup):
+    """Without setup tasks, downstream tasks are not searched for setups and teardowns."""
+    with DAG("test_dag", schedule=None, start_date=DEFAULT_DATE) as dag:
+        t1 = EmptyOperator(task_id="t1")
+        t2 = EmptyOperator(task_id="t2")
+        t3 = EmptyOperator(task_id="t3")
+        t1 >> t2 >> t3
+
+    partial = create_scheduler_dag(dag).partial_subset("t1", include_downstream=True, include_upstream=False)
+
+    assert set(partial.task_dict) == {"t1", "t2", "t3"}
+    mock_setups_lookup.assert_not_called()
 
 
 class TestTaskClearingSetupTeardownBehavior:

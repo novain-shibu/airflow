@@ -421,6 +421,20 @@ class TestDag:
         partial = dag.partial_subset("t1", include_downstream=True, include_upstream=False, depth=2)
         assert set(partial.task_dict.keys()) == {"t1", "t2", "t3", "t4"}
 
+    @mock.patch.object(BaseOperator, "get_upstreams_only_setups_and_teardowns", autospec=True)
+    def test_partial_subset_downstream_skips_setup_lookup_without_setups(self, mock_setups_lookup):
+        """Without setup tasks, downstream tasks are not searched for setups and teardowns."""
+        with DAG("test_dag", schedule=None, start_date=DEFAULT_DATE) as dag:
+            t1 = BaseOperator(task_id="t1")
+            t2 = BaseOperator(task_id="t2")
+            t3 = BaseOperator(task_id="t3")
+            t1 >> t2 >> t3
+
+        partial = dag.partial_subset("t1", include_downstream=True, include_upstream=False)
+
+        assert set(partial.task_dict) == {"t1", "t2", "t3"}
+        mock_setups_lookup.assert_not_called()
+
     def test_partial_subset_with_negative_depth(self):
         """Test that partial_subset rejects negative depth values."""
         with DAG("test_dag", schedule=None, start_date=DEFAULT_DATE) as dag:
