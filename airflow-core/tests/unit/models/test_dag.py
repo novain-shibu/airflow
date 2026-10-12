@@ -4144,7 +4144,7 @@ def test_serialized_partial_subset_downstream_skips_setup_lookup_without_setups(
         t3 = EmptyOperator(task_id="t3")
         t1 >> t2 >> t3
 
-    partial = create_scheduler_dag(dag).partial_subset("t1", include_downstream=True, include_upstream=False)
+    partial = create_scheduler_dag(dag).partial_subset("t1", include_downstream=True)
 
     assert set(partial.task_dict) == {"t1", "t2", "t3"}
     mock_setups_lookup.assert_not_called()
